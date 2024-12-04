@@ -1,0 +1,263 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-postgresql
+  namespace: mvdls3perf
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airflow-postgresql
+  template:
+    metadata:
+      labels:
+        app: airflow-postgresql
+    spec:
+      containers:
+      - name: airflow-postgresql
+        image: postgres:13
+        env:
+        - name: POSTGRES_DB
+          value: airflow
+        - name: POSTGRES_USER
+          value: airflow
+        - name: POSTGRES_PASSWORD
+          value: airflow
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+          subPath: airflow/postgresql
+      volumes:
+      - name: postgres-data
+        persistentVolumeClaim:
+          claimName: mvdls3perf-pvc
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-postgresql
+  namespace: mvdls3perf
+spec:
+  selector:
+    app: airflow-postgresql
+  ports:  
+  - port: 5432
+    targetPort: 5432  
+  type: ClusterIP
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-redis
+  namespace: mvdls3perf
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airflow-redis
+  template:
+    metadata:
+      labels:
+        app: airflow-redis
+    spec:
+      containers:
+      - name: airflow-redis
+        image: redis:6
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+          subPath: airflow/redis
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: mvdls3perf-pvc
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-redis
+  namespace: mvdls3perf
+spec:
+  selector:
+    app: airflow-redis
+  ports:
+  - port: 6379
+    targetPort: 6379  
+  type: ClusterIP
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-web
+  namespace: mvdls3perf
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airflow-web
+  template:
+    metadata:
+      labels:
+        app: airflow-web
+    spec:
+      containers:
+      - name: airflow-web
+        image: apache/airflow:2.10.3
+        ports:
+        - containerPort: 8080
+        env:
+          - name: AIRFLOW__CORE__EXECUTOR
+            value: CeleryExecutor
+          - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+            value: postgresql+psycopg2://airflow:airflow@postgresql.mvdls3perf:5432/airflow
+          - name: AIRFLOW__CELERY__RESULT_BACKEND
+            value: db+postgresql://airflow:airflow@postgresql.mvdls3perf:5432/airflow
+          - name: AIRFLOW__CELERY__BROKER_URL
+            value: redis://:@redis.mvdls3perf:6379/0
+          - name: AIRFLOW__CORE__FERNET_KEY
+            value: ""
+          - name: AIRFLOW__CORE__LOGGING_LEVEL
+            value: "INFO"
+          - name: AIRFLOW__CORE__LOAD_EXAMPLES
+            value: "False"
+        volumeMounts:
+        - name: airflow-logs
+          mountPath: /opt/airflow/logs
+          subPath: airflow/logs
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+      volumes:
+      - name: airflow-logs
+        persistentVolumeClaim:
+          claimName: mvdls3perf-pvc
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-web
+  namespace: mvdls3perf
+spec:
+  selector:
+    app: airflow-web
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080  
+  type: LoadBalancer
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-scheduler
+  namespace: mvdls3perf
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airflow-scheduler
+  template:
+    metadata:
+      labels:
+        app: airflow-scheduler
+    spec:
+      containers:
+      - name: airflow-scheduler
+        image: apache/airflow:2.10.3
+        env:
+          - name: AIRFLOW__CORE__EXECUTOR
+            value: CeleryExecutor
+          - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+            value: postgresql+psycopg2://airflow:airflow@postgresql.mvdls3perf:5432/airflow
+          - name: AIRFLOW__CELERY__RESULT_BACKEND
+            value: db+postgresql://airflow:airflow@postgresql.mvdls3perf:5432/airflow
+          - name: AIRFLOW__CELERY__BROKER_URL
+            value: redis://:@redis.mvdls3perf:6379/0        
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"      
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-worker
+  namespace: mvdls3perf
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: airflow-worker
+  template:
+    metadata:
+      labels:
+        app: airflow-worker
+    spec:
+      containers:
+      - name: airflow-worker
+        image: apache/airflow:2.10.3
+        env:
+          - name: AIRFLOW__CORE__EXECUTOR
+            value: CeleryExecutor
+          - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+            value: postgresql+psycopg2://airflow:airflow@postgresql.mvdls3perf:5432/airflow
+          - name: AIRFLOW__CELERY__RESULT_BACKEND
+            value: db+postgresql://airflow:airflow@postgresql.mvdls3perf:5432/airflow
+          - name: AIRFLOW__CELERY__BROKER_URL
+            value: redis://:@redis.mvdls3perf:6379/0
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-flower
+  namespace: mvdls3perf
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airflow-flower
+  template:
+    metadata:
+      labels:
+        app: airflow-flower
+    spec:
+      containers:
+      - name: airflow-flower
+        image: apache/airflow:2.10.3
+        env:
+          - name: CELERY_BROKER_URL
+            value: redis://redis:6379/0
+          - name: FLOWER_PORT
+            value: "5555"
+        ports:
+          - containerPort: 5555
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
