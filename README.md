@@ -13,7 +13,7 @@ helm search repo airflow
 kubectl create -f namespace.yaml
 
 # Installation command using yaml file
-helm install airflow apache-airflow/airflow -n mvdls3perf -f deployment-helm.yaml
+helm install airflow apache-airflow/airflow -n mvdls3perf -f values.yaml
 
 # Check newly created pods in mvdls3perf namespace
 kubectl get pods -n mvdls3perf -o wide
@@ -28,12 +28,12 @@ kubectl port-forward svc/airflow-webserver 8080:8080 -n mvdls3perf
 # - Update executor type
 # - GitSync
 
-helm show values apache-airflow/airflow > values.yaml
-helm upgrade --install airflow apache-airflow/airflow -n mvdls3perf -f values.yaml --debug
+helm show values apache-airflow/airflow > values-upgrade.yaml
+helm upgrade --install airflow apache-airflow/airflow -n mvdls3perf -f values-upgrade.yaml --debug
 helm ls -n mvdls3perf 
 
 # Create secret file for using gitSync
-kubectl create secret generic airflow-ssh-git-secret --from-file=gitSshKey=C:\Users\dheer\.ssh\id_rsa -n mvdls3perf
+kubectl create secret generic airflow-ssh-git-secret --from-file=gitSshKey=C:\Users\dheer\.ssh\new\id_rsa3 -n mvdls3perf
 kubectl get secrets -n mvdls3perf
 helm upgrade --install airflow apache-airflow/airflow -n mvdls3perf -f values.yaml --debug
 
@@ -42,3 +42,19 @@ kubectl logs airflow-scheduler-5f6bf74dc-zzj29 -c git-sync -n mvdls3perf
 
 kubectl port-forward svc/airflow-webserver 8080:8080 -n mvdls3perf
 
+# kubectl exec -n mvdls3perf airflow-webserver-869cd4bb48-n5gpm -it -- /bin/bash
+# kubectl config get-contexts
+# kubectl config current-context
+# kind delete cluster --name <cluster-name>
+# minikube delete
+
+
+kubectl delete namespace mvdls3perf
+
+kubectl create -f .\namespace.yaml
+kubectl create secret generic airflow-ssh-git-secret --from-file=gitSshKey=C:\Users\dheer\.ssh\new\id_rsa6 -n mvdls3perf
+helm install airflow apache-airflow/airflow -n mvdls3perf -f values.yaml
+
+kubectl get pods -n mvdls3perf
+
+kubectl port-forward svc/airflow-webserver 8080:8080 -n mvdls3perf

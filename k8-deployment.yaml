@@ -16,6 +16,16 @@ spec:
       containers:
       - name: airflow-postgresql
         image: postgres:13
+        ports:
+          - containerPort: 5432
+            protocol: TCP
+        resources:
+          limits:
+            cpu: 300m
+            memory: 20Mi
+          requests:
+            cpu: 100m
+            memory: 10Mi
         env:
         - name: POSTGRES_DB
           value: airflow
@@ -67,6 +77,16 @@ spec:
       containers:
       - name: airflow-redis
         image: redis:6
+        ports:
+          - containerPort: 6379
+            protocol: TCP
+        resources:
+          limits:
+            cpu: 50m
+            memory: 5Mi
+          requests:
+            cpu: 10m
+            memory: 2Mi
         volumeMounts:
         - name: redis-data
           mountPath: /data
@@ -113,6 +133,7 @@ spec:
         image: apache/airflow:2.10.3
         ports:
         - containerPort: 8080
+          protocol: TCP
         env:
           - name: AIRFLOW__CORE__EXECUTOR
             value: CeleryExecutor
